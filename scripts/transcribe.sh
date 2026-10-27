@@ -17,9 +17,11 @@ whisper=$(command -v whisper-cli || command -v whisper || true)
 model=${WHISPER_MODEL:-}
 if [ -z "$model" ]; then
   for cand in \
-    "$HOME/models/ggml-base.en.bin" \
-    "$HOME/models/ggml-small.en.bin" \
+    "$HOME/models/ggml-large-v3-turbo.bin" \
+    "$HOME/models/ggml-large-v3.bin" \
     "$HOME/models/ggml-medium.en.bin" \
+    "$HOME/models/ggml-small.en.bin" \
+    "$HOME/models/ggml-base.en.bin" \
     "$HOME/whisper.cpp/models/ggml-base.en.bin"; do
     [ -f "$cand" ] && model=$cand && break
   done
@@ -34,11 +36,13 @@ fi
 audio=$media
 if [[ ! "$media" =~ \.wav$ ]]; then
   ffmpeg=$(command -v ffmpeg || true)
+  [ -n "$ffmpeg" ] || ffmpeg=$(ls "$HOME"/.hermes/tools/ffmpeg-*/bin/ffmpeg 2>/dev/null | head -1 || true)
   [ -n "$ffmpeg" ] || { echo "ffmpeg not found and input is not WAV" >&2; exit 127; }
   audio=$(mktemp --suffix=.wav)
   trap 'rm -f "$audio"' EXIT
   ffmpeg -loglevel error -y -i "$media" -ar 16000 -ac 1 "$audio"
 fi
 
-"$whisper" -m "$model" -l "$lang" -t 8 -no-timestamps -pp -f "$audio" 2>/dev/null \
-  | grep -v '^>> '
+"$whisper" -m "$model" -l "$lang" -t 8 -f "$audio" 2>/dev/null \
+  | grep -v '^>> ' \
+  | sed -E 's/^\[[0-9:.]+ --> [0-9:.]+\][[:space:]]*//'
